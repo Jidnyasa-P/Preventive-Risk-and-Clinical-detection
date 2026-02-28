@@ -1,130 +1,266 @@
-# 🩺 PreventAI – Diabetes Risk Clinical Decision Support System
+# PreventAI — Diabetes Risk Clinical Decision Support System
+### Praxis 2.0 Submission
 
-**Full-stack AI-powered clinical tool for early diabetes risk detection.**
-
-| Layer | Stack |
-|-------|-------|
-| Frontend | React 19 · TypeScript · Vite · Tailwind CSS v4 · Recharts |
-| Auth Server | Node.js · Express · SQLite · JWT |
-| ML Backend | Python · FastAPI · scikit-learn · SHAP |
-| AI Insights | OpenAI GPT-4o-mini **or** Google Gemini (configurable) |
+> **AI-powered early diabetes risk detection with explainable ML, GenAI clinical insights, interactive charts, PDF reports, and an intelligent chatbot.**
 
 ---
 
-## 📁 Project Structure
+## Table of Contents
+1. [Problem Statement](#problem-statement)
+2. [Solution Overview](#solution-overview)
+3. [Architecture](#architecture)
+4. [Tech Stack](#tech-stack)
+5. [Features](#features)
+6. [ML + GenAI Integration](#ml--genai-integration)
+7. [Setup & Run](#setup--run)
+8. [API Reference](#api-reference)
+9. [Model Performance](#model-performance)
+10. [Assumptions](#assumptions)
+11. [Limitations & Ethics](#limitations--ethics)
+
+---
+
+## Problem Statement
+
+Diabetes affects **537 million adults worldwide** (IDF 2021) — and nearly **half remain undiagnosed**. Early detection is critical: catching diabetes or prediabetes before complications develop can reduce the risk of blindness, kidney failure, limb amputation, and cardiovascular disease by up to **58%** through timely lifestyle intervention.
+
+The core challenges:
+- **Clinicians are overwhelmed** — GPs average 7–12 minutes per patient consultation
+- **Risk assessment is inconsistent** — different clinicians weigh risk factors differently
+- **Patient communication is poor** — medical jargon leads to low adherence to lifestyle advice
+- **No explainability** — patients and doctors don't know *which* factors drive the risk score
+
+PreventAI addresses all four challenges in a single, unified web platform.
+
+---
+
+## Solution Overview
+
+PreventAI is a full-stack clinical decision support system that:
+
+1. Takes 8 patient parameters (age, BMI, HbA1c, blood glucose, hypertension, heart disease, smoking history, gender)
+2. Runs a trained **Random Forest** model to compute a **diabetes risk probability (0–100%)**
+3. Uses **SHAP values** to explain exactly which factors contributed most to that score
+4. Passes the results to **Google Gemini** to generate personalised clinical insights for both doctors and patients
+5. Displays **interactive charts** (gauge, bar, radar, pie, area, stacked bar)
+6. Exports a **structured 2-page clinical PDF report** with all findings
+7. Provides a **conversational chatbot** with voice input/output for navigation and medical Q&A
+
+---
+
+## Architecture
 
 ```
-PreventAI/
-├── frontend/                   # React SPA + Node.js auth server
-│   ├── src/
-│   │   ├── components/         # All React UI components
-│   │   ├── services/
-│   │   │   └── aiService.ts    # Calls Python FastAPI backend
-│   │   ├── types.ts            # Shared TypeScript types
-│   │   └── App.tsx             # Root app with routing
-│   ├── server.ts               # Express auth server (login/signup/JWT)
-│   ├── vite.config.ts
-│   ├── package.json
-│   └── .env.example
-│
-└── backend/                    # Python FastAPI ML + GenAI service
-    ├── main.py                 # FastAPI app, routes, CORS
-    ├── model.py                # RandomForest load/train/predict
-    ├── explain.py              # SHAP explainability
-    ├── ai_service.py           # OpenAI / Gemini LLM integration
-    ├── schemas.py              # Pydantic request/response models
-    ├── diabetes_model.pkl      # Pre-trained model (97% accuracy)
-    ├── requirements.txt
-    └── .env.example
+┌─────────────────────────────────────────────────────┐
+│                   Browser (React SPA)                │
+│  PatientForm → RiskDashboard → Reports → Chatbot    │
+└────────────────────┬────────────────────────────────┘
+                     │
+          ┌──────────┴──────────┐
+          │                     │
+          ▼                     ▼
+┌─────────────────┐   ┌──────────────────────┐
+│  Node.js/Express│   │   Python FastAPI      │
+│  Auth Server    │   │   ML + AI Backend     │
+│  Port 3000      │   │   Port 8000           │
+│                 │   │                       │
+│  - Login/Signup │   │  ┌─────────────────┐ │
+│  - JWT tokens   │   │  │  Random Forest  │ │
+│  - SQLite DB    │   │  │  (sklearn)      │ │
+└─────────────────┘   │  └────────┬────────┘ │
+                      │           │           │
+                      │  ┌────────▼────────┐ │
+                      │  │  SHAP Explainer │ │
+                      │  │  (TreeExplainer)│ │
+                      │  └────────┬────────┘ │
+                      │           │           │
+                      │  ┌────────▼────────┐ │
+                      │  │  Google Gemini  │ │
+                      │  │  (GenAI Layer)  │ │
+                      │  └─────────────────┘ │
+                      └──────────────────────┘
+```
+
+### Data Flow
+
+```
+Patient Data Input (8 fields)
+        │
+        ▼
+Preprocessing (encode gender/smoking, normalize)
+        │
+        ▼
+Random Forest → P(diabetes) → Risk Score %
+        │
+        ▼
+SHAP TreeExplainer → Feature Importance (top 5)
+        │
+        ▼
+Gemini API → doctorView + patientView + counterfactuals
+        │
+        ▼
+React UI → Charts + PDF Report + Chatbot
 ```
 
 ---
 
-## 🚀 Quick Start
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Frontend UI | React 19, TypeScript, Vite, Tailwind CSS v4 |
+| Charts | Recharts (AreaChart, BarChart, RadarChart, PieChart) |
+| PDF Generation | jsPDF (pure client-side, no server needed) |
+| Chatbot | Web Speech API (voice in/out), custom NLP intent engine |
+| Auth Server | Node.js, Express, SQLite, JWT, bcrypt |
+| ML Backend | Python 3.11, FastAPI, uvicorn |
+| ML Model | scikit-learn RandomForestClassifier |
+| Explainability | SHAP (TreeExplainer) |
+| GenAI Layer | Google Gemini 2.0 Flash (via REST API) |
+| Fallback AI | Rule-based clinical guidelines engine |
+
+---
+
+## Features
+
+### Core Features
+- **Risk Assessment Form** — 8 validated clinical parameters with real-time input
+- **Risk Score Dashboard** — Animated SVG gauge, risk category badge, confidence indicators
+- **SHAP Feature Importance** — Bar chart and radar chart showing why the score was computed
+- **Doctor View** — Clinical explanation, diagnostic test recommendations, follow-up actions
+- **Patient View** — Plain-English explanation, diet, lifestyle, and exercise guidance
+- **Risk Reduction Insights** — Counterfactual "what-if" suggestions for modifiable factors
+
+### New Features (Praxis 2.0)
+- **PDF Clinical Report** — 2-page structured report with gauge, bar charts, clinical sections, disclaimer
+- **Aggregate Reports** — Practice-level statistics with trend charts and KPI cards
+- **Interactive Charts** — 6 chart types across dashboard and reports pages
+- **AI Chatbot** — Text + voice interface, navigates app, answers 20+ medical questions
+- **Patient History** — Stores and displays all past assessments with trend visualization
+
+---
+
+## ML + GenAI Integration
+
+### Machine Learning Pipeline
+
+**Dataset:** Diabetes Prediction Dataset — 100,000 patient records with 8 clinical features and a binary diabetes label (sourced from Kaggle, based on CDC BRFSS data).
+
+**Model:** RandomForestClassifier
+- 100 decision trees, balanced class weights to handle 9:1 class imbalance
+- Features: gender (encoded), age, hypertension, heart disease, smoking history (encoded), BMI, HbA1c, blood glucose
+- Train/test split: 80/20, stratified by label
+- **Accuracy: 97%**, F1-score (diabetes class): 0.81
+
+**Explainability — SHAP (SHapley Additive exPlanations):**
+- Uses TreeExplainer for efficient exact Shapley values on tree models
+- Computes per-patient feature contributions (not global importance)
+- Returns absolute SHAP values normalised to 0–100% for display
+- Compatible with all SHAP versions (handles 2D and 3D output arrays)
+
+### GenAI Layer — Google Gemini
+
+The SHAP output and patient summary are passed to Gemini with a structured system prompt requiring a specific JSON schema back:
+
+```json
+{
+  "doctorView": {
+    "explanation": "clinical 2-3 sentence summary",
+    "diagnosticTests": ["test1", "test2"],
+    "recommendations": ["action1", "action2"]
+  },
+  "patientView": {
+    "explanation": "plain English summary",
+    "lifestyleAdvice": [...],
+    "dietSuggestions": [...],
+    "exerciseRecommendations": [...]
+  },
+  "counterfactuals": ["what-if insight 1", ...]
+}
+```
+
+**Fallback chain:** If Gemini is unavailable or quota is exceeded, the system automatically falls back to a rule-based clinical guidelines engine that produces medically accurate responses deterministically — the app never fails.
+
+---
+
+## Setup & Run
 
 ### Prerequisites
-- **Node.js** v18+
-- **Python** 3.9+
+- Python 3.9+
+- Node.js 18+
 
----
+### Windows (PowerShell)
 
-### Step 1 – Start the Python Backend (FastAPI)
+**Terminal 1 — Backend**
+```powershell
+cd preventai-updated\backend
 
-```bash
-cd backend
+python -m venv venv
+venv\Scripts\Activate.ps1
 
-# Create a virtual environment (recommended)
-python -m venv .venv
-source .venv/bin/activate       # Windows: .venv\Scripts\activate
-
-# Install dependencies
 pip install -r requirements.txt
 
-# Configure environment
-cp .env.example .env
-# Edit .env: set LLM_PROVIDER and LLM_API_KEY
+# Create .env file
+copy .env.example .env
+# Edit .env and set your LLM_API_KEY
 
-# Copy the dataset (for auto-retraining if model is missing)
-# The pre-trained diabetes_model.pkl is already included
-
-# Start the server
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-✅ Backend running at: **http://localhost:8000**
-📖 API docs: **http://localhost:8000/docs**
-
----
-
-### Step 2 – Start the Frontend + Auth Server
-
-```bash
-cd frontend
-
-# Install dependencies
+**Terminal 2 — Frontend**
+```powershell
+cd preventai-updated\frontend
 npm install
-
-# Configure environment
-cp .env.example .env
-# Set VITE_API_URL=http://localhost:8000
-
-# Start the dev server (runs both Vite + Express auth)
 npm run dev
 ```
 
-✅ App running at: **http://localhost:3000**
+Open **http://localhost:3000**
+
+### Mac / Linux
+
+**Terminal 1 — Backend**
+```bash
+cd preventai-updated/backend
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+# Edit .env with your LLM_API_KEY
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**Terminal 2 — Frontend**
+```bash
+cd preventai-updated/frontend
+npm install
+npm run dev
+```
+
+### Environment Variables (backend/.env)
+
+```env
+LLM_PROVIDER=gemini
+LLM_API_KEY=your_gemini_api_key_here
+LLM_MODEL=gemini-2.0-flash
+MODEL_PATH=diabetes_model.pkl
+CORS_ORIGINS=http://localhost:3000,http://localhost:5173
+```
+
+Get a free Gemini API key at: https://aistudio.google.com/app/apikey
+
+> **Note:** The app works fully without an API key using the built-in rule-based fallback.
 
 ---
 
-## 🔗 How Frontend ↔ Backend Connect
+## API Reference
 
-```
-Browser (React)
-    │
-    ├── /api/*  ──────────────►  Node.js Express (port 3000)
-    │                              Auth: login, signup, logout, profile
-    │                              Database: SQLite (preventai.db)
-    │
-    └── fetch() to VITE_API_URL ► Python FastAPI (port 8000)
-                                   POST /predict   → full risk assessment
-                                   POST /predict/quick → ML-only
-                                   GET  /health    → liveness
-```
+### POST /predict
+Full risk assessment with ML + SHAP + GenAI.
 
-The key file is `frontend/src/services/aiService.ts` — it sends the `PatientData`
-object from `PatientForm.tsx` to the FastAPI `/predict` endpoint and receives a
-`RiskResult` object that `RiskDashboard.tsx` renders directly.
-
----
-
-## 🧠 API Reference
-
-### `POST /predict` — Full Risk Assessment
-
-**Request** (camelCase, matches TypeScript `PatientData`)
+**Request:**
 ```json
 {
-  "gender": "Male",
+  "gender": "Female",
   "age": 52,
   "hypertension": true,
   "heartDisease": false,
@@ -135,78 +271,52 @@ object from `PatientForm.tsx` to the FastAPI `/predict` endpoint and receives a
 }
 ```
 
-**Response** (matches TypeScript `RiskResult`)
-```json
-{
-  "riskScore": 74.2,
-  "riskCategory": "High",
-  "featureImportance": [
-    { "feature": "HbA1c Level",         "importance": 38.1 },
-    { "feature": "Blood Glucose Level", "importance": 27.4 },
-    { "feature": "Age",                 "importance": 15.6 },
-    { "feature": "BMI",                 "importance": 12.2 },
-    { "feature": "Hypertension",        "importance": 4.1  }
-  ],
-  "doctorView": {
-    "explanation": "...",
-    "diagnosticTests": ["HbA1c measurement", "Fasting plasma glucose", "..."],
-    "recommendations": ["Endocrinology referral", "..."]
-  },
-  "patientView": {
-    "explanation": "...",
-    "lifestyleAdvice":           ["..."],
-    "dietSuggestions":           ["..."],
-    "exerciseRecommendations":   ["..."]
-  },
-  "counterfactuals": ["Reducing BMI by 5% could lower your risk by ~10%", "..."]
-}
-```
+**Response:** RiskResult object with riskScore, riskCategory, featureImportance, doctorView, patientView, counterfactuals.
+
+### GET /health
+Returns model load status and LLM provider.
+
+### POST /predict/quick
+ML-only prediction (no SHAP, no LLM) for high-throughput use.
 
 ---
 
-## ⚙️ Environment Variables
+## Model Performance
 
-### Backend (`backend/.env`)
+Trained on 100,000 patient records:
 
-| Variable       | Default              | Description                              |
-|----------------|----------------------|------------------------------------------|
-| `LLM_PROVIDER` | `openai`             | `openai` or `gemini`                     |
-| `LLM_API_KEY`  | *(required)*         | API key for chosen LLM provider          |
-| `LLM_MODEL`    | `gpt-4o-mini`        | Model name override                      |
-| `MODEL_PATH`   | `diabetes_model.pkl` | Path to saved sklearn model              |
-| `DATASET_PATH` | `diabetes_dataset.csv` | CSV used if model is missing           |
-| `CORS_ORIGINS` | `http://localhost:3000,...` | Allowed frontend origins          |
-
-### Frontend (`frontend/.env`)
-
-| Variable       | Default                    | Description                    |
-|----------------|----------------------------|--------------------------------|
-| `VITE_API_URL` | `http://localhost:8000`    | Python backend URL             |
-| `JWT_SECRET`   | `preventai-super-secret-key` | Must match auth server       |
+| Metric | No Diabetes | Diabetes |
+|--------|-------------|----------|
+| Precision | 0.97 | 0.97 |
+| Recall | 1.00 | 0.69 |
+| F1-Score | 0.98 | 0.81 |
+| **Overall Accuracy** | | **97%** |
 
 ---
 
-## 🤖 LLM Fallback
+## Assumptions
 
-If `LLM_API_KEY` is not set or the API call fails, the backend automatically falls back to **rule-based clinical insights** — the app remains fully functional without any LLM key.
-
----
-
-## 📊 Model Performance
-
-Trained on the Diabetes Prediction Dataset (100,000 rows):
-
-| Metric    | Class 0 (No Diabetes) | Class 1 (Diabetes) |
-|-----------|-----------------------|--------------------|
-| Precision | 0.97                  | 0.97               |
-| Recall    | 1.00                  | 0.69               |
-| F1-score  | 0.98                  | 0.81               |
-| **Overall Accuracy** |              | **97%**            |
+1. Input values are self-reported or from clinical records — no validation against lab ranges is performed server-side
+2. The model is trained on CDC BRFSS survey data which may not reflect all global populations equally
+3. HbA1c and blood glucose are assumed to be fasting values unless otherwise noted
+4. The system assumes binary diabetes classification (diabetic / non-diabetic) — it does not distinguish Type 1 from Type 2
+5. GenAI insights are generated fresh per request — they are not cached or personalised across sessions
+6. The chatbot intent engine is rule-based (not LLM-powered) and handles ~20 predefined intents
 
 ---
 
-## ⚠️ Disclaimer
+## Limitations & Ethics
 
-This system is a **clinical decision support tool** only.  
-All outputs must be reviewed by a qualified healthcare professional.  
-It does not replace medical diagnosis or treatment.
+See DOCUMENTATION.md for full ethical analysis. Key points:
+
+- **Not a diagnostic tool** — outputs must be reviewed by a licensed clinician
+- **Dataset bias** — model trained on US CDC data; may underperform for other demographics
+- **Class imbalance** — only ~8.5% of training records are diabetic; recall for diabetes class is 69%
+- **No longitudinal tracking** — risk is assessed at a point in time, not tracked over time
+- **Data privacy** — patient data is stored locally in SQLite; no cloud transmission of clinical data
+
+---
+
+## Project Team
+
+Submitted for **Praxis 2.0** Hackathon
