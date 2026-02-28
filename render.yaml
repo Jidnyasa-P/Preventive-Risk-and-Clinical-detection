@@ -1,26 +1,22 @@
 services:
   - type: web
     name: preventai
-    runtime: python
-    rootDir: .
-    buildCommand: |
-      pip install -r backend/requirements.txt
-      curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-      apt-get install -y nodejs
-      cd frontend && npm install && npm run build
-    startCommand: bash start.sh
+    runtime: docker          # Docker handles both Python + Node in one container
+    dockerfilePath: ./Dockerfile
     envVars:
       - key: LLM_PROVIDER
         value: gemini
       - key: LLM_MODEL
         value: gemini-2.0-flash
       - key: LLM_API_KEY
-        sync: false          # You fill this in the Render dashboard
+        sync: false           # Set this in the Render dashboard
       - key: JWT_SECRET
-        generateValue: true  # Render auto-generates a secure random value
+        generateValue: true   # Render auto-generates a secure random value
       - key: NODE_ENV
         value: production
       - key: ML_BACKEND_URL
         value: http://127.0.0.1:8001
+      # After first deploy, update CORS_ORIGINS to your Render URL:
+      # e.g. https://preventai.onrender.com
       - key: CORS_ORIGINS
-        value: http://127.0.0.1:8001
+        value: "*"
