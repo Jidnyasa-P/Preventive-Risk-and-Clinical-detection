@@ -27,12 +27,33 @@ const PageWrapper = ({ children }: { children: React.ReactNode }) => (
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isPredicting, setIsPredicting] = useState(false);
   const [riskResult, setRiskResult] = useState<RiskResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Check auth on mount
+  React.useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const res = await fetch('/api/auth/me');
+        if (res.ok) {
+          const data = await res.json();
+          setUser(data.user);
+          setIsLoggedIn(true);
+        }
+      } catch (err) {
+        console.error("Auth check failed", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    checkAuth();
+  }, []);
+
   const handlePredict = async (data: PatientData) => {
-    setIsLoading(true);
+    setIsPredicting(true);
     setError(null);
     try {
       const result = await predictDiabetesRisk(data);
@@ -58,48 +79,67 @@ export default function App() {
       setError('Failed to analyze risk. Please check your connection and try again.');
       return false;
     } finally {
-      setIsLoading(false);
+      setIsPredicting(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-slate-500 font-medium">Initializing PreventAI...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Router>
       <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
-        <Navbar isLoggedIn={isLoggedIn} />
+        <Navbar isLoggedIn={isLoggedIn} user={user} />
         
         <main>
           <AnimatePresence mode="wait">
             <Routes>
               <Route path="/" element={<LandingPage />} />
-              <Route path="/login" element={<Login setIsLoggedIn={setIsLoggedIn} />} />
-              <Route path="/signup" element={<Signup setIsLoggedIn={setIsLoggedIn} />} />
+              <Route path="/login" element={<Login setIsLoggedIn={setIsLoggedIn} setUser={setUser} />} />
+              <Route path="/signup" element={<Signup setIsLoggedIn={setIsLoggedIn} setUser={setUser} />} />
               
               <Route path="/predict" element={
-                <PageWrapper>
-                  <PredictFlow 
-                    onPredict={handlePredict} 
-                    isLoading={isLoading} 
-                    riskResult={riskResult} 
-                  />
-                </PageWrapper>
+                isLoggedIn ? (
+                  <PageWrapper>
+                    <PredictFlow 
+                      onPredict={handlePredict} 
+                      isLoading={isPredicting} 
+                      riskResult={riskResult} 
+                    />
+                  </PageWrapper>
+                ) : <Navigate to="/login" replace />
               } />
               
               <Route path="/history" element={
-                <PageWrapper>
-                  <PatientHistory />
-                </PageWrapper>
+                isLoggedIn ? (
+                  <PageWrapper>
+                    <PatientHistory />
+                  </PageWrapper>
+                ) : <Navigate to="/login" replace />
               } />
               
               <Route path="/reports" element={
-                <PageWrapper>
-                  <Reports />
-                </PageWrapper>
+                isLoggedIn ? (
+                  <PageWrapper>
+                    <Reports />
+                  </PageWrapper>
+                ) : <Navigate to="/login" replace />
               } />
               
               <Route path="/settings" element={
-                <PageWrapper>
-                  <Settings setIsLoggedIn={setIsLoggedIn} />
-                </PageWrapper>
+                isLoggedIn ? (
+                  <PageWrapper>
+                    <Settings setIsLoggedIn={setIsLoggedIn} user={user} setUser={setUser} />
+                  </PageWrapper>
+                ) : <Navigate to="/login" replace />
               } />
 
               {/* Fallback */}

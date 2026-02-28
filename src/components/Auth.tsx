@@ -3,19 +3,40 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Activity, Mail, Lock, User, ArrowRight, Github } from 'lucide-react';
 import { motion } from 'motion/react';
 
-export function Login({ setIsLoggedIn }: { setIsLoggedIn: (val: boolean) => void }) {
+export function Login({ setIsLoggedIn, setUser }: { setIsLoggedIn: (val: boolean) => void, setUser: (user: any) => void }) {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const formData = new FormData(e.target as HTMLFormElement);
+    const email = formData.get('email');
+    const password = formData.get('password');
+
     setIsLoading(true);
-    // Simulate login
-    setTimeout(() => {
+    setError(null);
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setIsLoggedIn(true);
+        setUser(data.user);
+        navigate('/predict');
+      } else {
+        setError(data.error || 'Login failed');
+      }
+    } catch (err) {
+      setError('Connection error. Please try again.');
+    } finally {
       setIsLoading(false);
-      setIsLoggedIn(true);
-      navigate('/predict');
-    }, 1000);
+    }
   };
 
   return (
@@ -34,11 +55,18 @@ export function Login({ setIsLoggedIn }: { setIsLoggedIn: (val: boolean) => void
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div className="p-3 rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm font-medium flex items-center gap-2">
+              <Activity className="w-4 h-4" />
+              {error}
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
             <div className="relative">
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input 
+                name="email"
                 type="email" 
                 required
                 placeholder="doctor@hospital.com"
@@ -51,6 +79,7 @@ export function Login({ setIsLoggedIn }: { setIsLoggedIn: (val: boolean) => void
             <div className="relative">
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input 
+                name="password"
                 type="password" 
                 required
                 placeholder="••••••••"
@@ -85,18 +114,41 @@ export function Login({ setIsLoggedIn }: { setIsLoggedIn: (val: boolean) => void
   );
 }
 
-export function Signup({ setIsLoggedIn }: { setIsLoggedIn: (val: boolean) => void }) {
+export function Signup({ setIsLoggedIn, setUser }: { setIsLoggedIn: (val: boolean) => void, setUser: (user: any) => void }) {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const formData = new FormData(e.target as HTMLFormElement);
+    const fullName = formData.get('fullName');
+    const email = formData.get('email');
+    const password = formData.get('password');
+
     setIsLoading(true);
-    setTimeout(() => {
+    setError(null);
+
+    try {
+      const res = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fullName, email, password }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setIsLoggedIn(true);
+        setUser(data.user);
+        navigate('/predict');
+      } else {
+        setError(data.error || 'Signup failed');
+      }
+    } catch (err) {
+      setError('Connection error. Please try again.');
+    } finally {
       setIsLoading(false);
-      setIsLoggedIn(true);
-      navigate('/predict');
-    }, 1000);
+    }
   };
 
   return (
@@ -115,11 +167,18 @@ export function Signup({ setIsLoggedIn }: { setIsLoggedIn: (val: boolean) => voi
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div className="p-3 rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm font-medium flex items-center gap-2">
+              <Activity className="w-4 h-4" />
+              {error}
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
             <div className="relative">
               <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input 
+                name="fullName"
                 type="text" 
                 required
                 placeholder="Dr. John Doe"
@@ -132,6 +191,7 @@ export function Signup({ setIsLoggedIn }: { setIsLoggedIn: (val: boolean) => voi
             <div className="relative">
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input 
+                name="email"
                 type="email" 
                 required
                 placeholder="doctor@hospital.com"
@@ -144,6 +204,7 @@ export function Signup({ setIsLoggedIn }: { setIsLoggedIn: (val: boolean) => voi
             <div className="relative">
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input 
+                name="password"
                 type="password" 
                 required
                 placeholder="••••••••"

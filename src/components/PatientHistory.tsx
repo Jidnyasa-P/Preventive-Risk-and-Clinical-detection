@@ -5,6 +5,35 @@ import { motion } from 'motion/react';
 export default function PatientHistory() {
   const [history, setHistory] = useState<any[]>([]);
 
+  const handleExportCSV = () => {
+    if (history.length === 0) return;
+    
+    const headers = ['Date', 'Patient ID', 'Risk Score', 'Category', 'BMI', 'Glucose'];
+    const rows = history.map(item => [
+      item.date,
+      item.name,
+      `${item.risk}%`,
+      item.category,
+      item.bmi,
+      `${item.glucose} mg/dL`
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `preventai_patient_history_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   useEffect(() => {
     const saved = localStorage.getItem('preventai_history');
     if (saved) {
@@ -36,7 +65,7 @@ export default function PatientHistory() {
             Filter
           </button>
           <button 
-            onClick={() => alert('Exporting patient history...')}
+            onClick={handleExportCSV}
             className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-100"
           >
             <Download className="w-4 h-4" />

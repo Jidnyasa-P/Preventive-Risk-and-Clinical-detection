@@ -3,11 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Activity, User, LogOut, Menu, X } from 'lucide-react';
 import { useState } from 'react';
 
-interface NavbarProps {
-  isLoggedIn: boolean;
-}
-
-export default function Navbar({ isLoggedIn }: NavbarProps) {
+export default function Navbar({ isLoggedIn, user }: { isLoggedIn: boolean, user: any }) {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
   const isLanding = location.pathname === '/';
@@ -34,7 +30,7 @@ export default function Navbar({ isLoggedIn }: NavbarProps) {
 
           {/* Desktop Links */}
           <div className="hidden md:flex items-center space-x-8">
-            {!isLanding && navLinks.map((link) => (
+            {isLoggedIn && navLinks.map((link) => (
               <Link
                 key={link.name}
                 to={link.href}
@@ -50,11 +46,11 @@ export default function Navbar({ isLoggedIn }: NavbarProps) {
               {isLoggedIn ? (
                 <Link to="/settings" className="flex items-center gap-2 group">
                   <div className="text-right hidden sm:block">
-                    <p className="text-xs font-bold text-slate-900">Dr. Sarah Smith</p>
-                    <p className="text-[10px] text-slate-500">Endocrinologist</p>
+                    <p className="text-xs font-bold text-slate-900">{user?.fullName || 'Doctor'}</p>
+                    <p className="text-[10px] text-slate-500">{user?.specialization || 'Clinician'}</p>
                   </div>
                   <div className="w-8 h-8 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-700 font-bold text-xs shadow-sm group-hover:scale-105 transition-transform">
-                    SS
+                    {(user?.fullName || 'D').split(' ').map((n: any) => n[0]).join('').slice(0, 2).toUpperCase()}
                   </div>
                 </Link>
               ) : (
@@ -88,7 +84,7 @@ export default function Navbar({ isLoggedIn }: NavbarProps) {
       {/* Mobile menu */}
       {isOpen && (
         <div className="md:hidden bg-white border-b border-slate-200 py-4 px-4 space-y-2">
-          {!isLanding && navLinks.map((link) => (
+          {isLoggedIn && navLinks.map((link) => (
             <Link
               key={link.name}
               to={link.href}

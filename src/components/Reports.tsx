@@ -10,6 +10,44 @@ export default function Reports() {
     { label: 'Active Clinicians', value: '24', change: '0%', trend: 'neutral', icon: Users, color: 'text-emerald-600 bg-emerald-50' },
   ];
 
+  const handleDownloadAggregateReport = () => {
+    const reportContent = `
+PREVENTAI CLINICAL AGGREGATE SUMMARY
+Period: Last 30 Days
+Generated on: ${new Date().toLocaleString()}
+-------------------------------------------
+
+KEY PERFORMANCE INDICATORS:
+${stats.map(s => `${s.label}: ${s.value} (${s.change} trend)`).join('\n')}
+
+RISK DISTRIBUTION:
+- Low Risk: 65% (842 patients)
+- Moderate Risk: 22% (286 patients)
+- High Risk: 13% (156 patients)
+
+AI INSIGHTS SUMMARY:
+Based on the last 30 days of data, there is a 15% increase in high-risk assessments 
+among patients aged 45-60. Early intervention protocols have been triggered for 
+82% of these cases.
+
+- Screening efficiency improved by 24%
+- HbA1c monitoring frequency increased
+
+-------------------------------------------
+END OF REPORT
+`;
+
+    const blob = new Blob([reportContent], { type: 'text/plain;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `PreventAI_Aggregate_Report_${Date.now()}.txt`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -26,11 +64,11 @@ export default function Reports() {
             Last 30 Days
           </div>
           <button 
-            onClick={() => alert('Generating PDF report...')}
+            onClick={handleDownloadAggregateReport}
             className="bg-emerald-600 text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-100 flex items-center gap-2"
           >
             <Download className="w-4 h-4" />
-            Download PDF
+            Download Report
           </button>
         </div>
       </div>
