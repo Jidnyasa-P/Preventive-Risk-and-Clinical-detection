@@ -1,10 +1,10 @@
 """
-PreventAI – explain.py
+PreventAI - explain.py
 Generates feature-level explanations using SHAP (preferred) or falls back to
 the model's built-in feature_importances_ when SHAP is unavailable.
 
 Returns top-N contributing features as a list of dicts:
-    [{"feature": "HbA1c Level", "importance": 42.3}, …]
+    [{"feature": "HbA1c Level", "importance": 42.3}, ...]
 where `importance` is a 0-100 percentage value consumed by RiskChart.tsx.
 """
 from __future__ import annotations
@@ -18,25 +18,18 @@ from model import preprocess, FEATURE_DISPLAY_NAMES
 
 logger = logging.getLogger(__name__)
 
-# Try importing SHAP; fall back gracefully if not installed
 try:
     import shap  # type: ignore
-
     _SHAP_AVAILABLE = True
-    logger.info("SHAP is available – using TreeExplainer for explanations.")
+    logger.info("SHAP is available - using TreeExplainer for explanations.")
 except ImportError:
     _SHAP_AVAILABLE = False
-    logger.warning(
-        "SHAP not installed – falling back to model.feature_importances_. "
-        "Install shap for patient-level explanations."
-    )
+    logger.warning("SHAP not installed - falling back to model.feature_importances_.")
 
-# Module-level explainer cache (initialised once per process)
 _explainer_cache: Any = None
 
 
 def _get_explainer(bundle: Dict[str, Any]) -> Any:
-    """Builds (or returns cached) SHAP TreeExplainer."""
     global _explainer_cache
     if _explainer_cache is None and _SHAP_AVAILABLE:
         clf = bundle["model"]
@@ -45,10 +38,6 @@ def _get_explainer(bundle: Dict[str, Any]) -> Any:
     return _explainer_cache
 
 
-# ──────────────────────────────────────────────
-# Public API
-# ──────────────────────────────────────────────
-
 def get_top_features(
     patient_dict: Dict[str, Any],
     bundle: Dict[str, Any],
@@ -56,24 +45,18 @@ def get_top_features(
 ) -> List[Dict[str, Any]]:
     """
     Compute feature importance for a single patient.
-
-    Returns a list of dicts sorted by |contribution| descending:
-        [{"feature": "HbA1c Level", "importance": 42.3}, …]
-
-    `importance` is expressed as a percentage (0–100) for the front-end
-    RiskChart component.
+    Returns list of {"feature": str, "importance": float (0-100)} dicts.
     """
     feature_names: List[str] = bundle.get("feature_names", FEATURE_DISPLAY_NAMES)
 
     if _SHAP_AVAILABLE:
-        return _shap_explanation(patient_dict, bundle, feature_names, top_n)
-    else:
-        return _fallback_explanation(bundle, feature_names, top_n)
+        try:
+            return _shap_explanation(patient_dict, bundle, feature_names, top_n)
+        except Exception as exc:
+            logger.warning("SHAP explanation failed (%s) - using fallback.", exc)
 
+    return _fallback_explanation(bundle, feature_names, top_n)
 
-# ──────────────────────────────────────────────
-# SHAP path
-# ──────────────────────────────────────────────
 
 def _shap_explanation(
     patient_dict: Dict[str, Any],
@@ -81,21 +64,44 @@ def _shap_explanation(
     feature_names: List[str],
     top_n: int,
 ) -> List[Dict[str, Any]]:
-    """Patient-level SHAP values via TreeExplainer."""
+    """Patient-level SHAP values via TreeExplainer - handles all SHAP versions."""
     explainer = _get_explainer(bundle)
     X = preprocess(patient_dict, bundle)
-
-    # shap_values shape: (n_outputs, n_samples, n_features)
-    # For RandomForest binary classification: index [1] → class=1 (diabetes)
     raw = explainer.shap_values(X)
 
-    if isinstance(raw, list):
-        shap_vals = np.abs(raw[1][0])  # absolute contributions, class 1
-    else:
-        shap_vals = np.abs(raw[0])
+    # --- Normalise raw SHAP output to 1-D array of per-feature importances ---
+    # SHAP can return:
+    #   list of arrays  -> [class0_array, class1_array], each shape (1, n_features)
+    #   3-D ndarray     -> shape (1, n_features, n_classes)
+    #   2-D ndarray     -> shape (1, n_features)
+    #   1-D ndarray     -> shape (n_features,)
 
-    # Normalise to 0-100 percentage
-    total = shap_vals.sum() or 1.0
+    if isinstance(raw, list):
+        # Old SHAP: list[class] where each element is (n_samples, n_features)
+        # Pick class=1 (diabetes positive)
+        arr = np.asarray(raw[1], dtype=float)
+        shap_vals = np.abs(arr).ravel()
+    else:
+        arr = np.asarray(raw, dtype=float)
+        if arr.ndim == 3:
+            # New SHAP: (n_samples, n_features, n_classes) - take class 1
+            shap_vals = np.abs(arr[0, :, 1])
+        elif arr.ndim == 2:
+            # (n_samples, n_features)
+            shap_vals = np.abs(arr[0])
+        else:
+            shap_vals = np.abs(arr.ravel())
+
+    # Guarantee 1 scalar per feature
+    n_features = len(feature_names)
+    shap_vals = shap_vals.ravel().astype(float)
+    if shap_vals.size < n_features:
+        shap_vals = np.pad(shap_vals, (0, n_features - shap_vals.size))
+    elif shap_vals.size > n_features:
+        shap_vals = shap_vals[:n_features]
+
+    # Normalise to 0-100 %
+    total = float(shap_vals.sum()) or 1.0
     pct = (shap_vals / total) * 100.0
 
     ranked = sorted(
@@ -104,28 +110,23 @@ def _shap_explanation(
         reverse=True,
     )[:top_n]
 
-    return [{"feature": name, "importance": round(score, 2)} for name, score in ranked]
+    return [
+        {"feature": str(name), "importance": round(float(score), 2)}
+        for name, score in ranked
+    ]
 
-
-# ──────────────────────────────────────────────
-# Fallback path (global feature importances)
-# ──────────────────────────────────────────────
 
 def _fallback_explanation(
     bundle: Dict[str, Any],
     feature_names: List[str],
     top_n: int,
 ) -> List[Dict[str, Any]]:
-    """
-    Uses the model's global feature_importances_ (model-level, not patient-level).
-    Less precise than SHAP but always available.
-    """
-    from sklearn.ensemble import RandomForestClassifier  # local import is fine
-
+    """Global feature importances from the RandomForest model."""
+    from sklearn.ensemble import RandomForestClassifier
     clf: RandomForestClassifier = bundle["model"]
-    importances = clf.feature_importances_
+    importances = np.asarray(clf.feature_importances_, dtype=float).ravel()
 
-    total = importances.sum() or 1.0
+    total = float(importances.sum()) or 1.0
     pct = (importances / total) * 100.0
 
     ranked = sorted(
@@ -134,4 +135,7 @@ def _fallback_explanation(
         reverse=True,
     )[:top_n]
 
-    return [{"feature": name, "importance": round(score, 2)} for name, score in ranked]
+    return [
+        {"feature": str(name), "importance": round(float(score), 2)}
+        for name, score in ranked
+    ]

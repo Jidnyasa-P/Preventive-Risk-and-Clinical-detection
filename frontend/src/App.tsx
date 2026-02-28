@@ -7,20 +7,15 @@ import RiskDashboard from './components/RiskDashboard';
 import PatientHistory from './components/PatientHistory';
 import Reports from './components/Reports';
 import Settings from './components/Settings';
+import Chatbot from './components/Chatbot';
 import { Login, Signup } from './components/Auth';
 import { PatientData, RiskResult } from './types';
 import { predictDiabetesRisk } from './services/aiService';
 import { motion, AnimatePresence } from 'motion/react';
 import { AlertCircle } from 'lucide-react';
 
-// Wrapper for pages that need a consistent layout
 const PageWrapper = ({ children }: { children: React.ReactNode }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 10 }}
-    animate={{ opacity: 1, y: 0 }}
-    exit={{ opacity: 0, y: -10 }}
-    className="p-8"
-  >
+  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="p-8">
     {children}
   </motion.div>
 );
@@ -31,9 +26,9 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [isPredicting, setIsPredicting] = useState(false);
   const [riskResult, setRiskResult] = useState<RiskResult | null>(null);
+  const [lastPatientData, setLastPatientData] = useState<PatientData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Check auth on mount
   React.useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -55,11 +50,10 @@ export default function App() {
   const handlePredict = async (data: PatientData) => {
     setIsPredicting(true);
     setError(null);
+    setLastPatientData(data);
     try {
       const result = await predictDiabetesRisk(data);
       setRiskResult(result);
-      
-      // Save to history
       const saved = localStorage.getItem('preventai_history');
       const history = saved ? JSON.parse(saved) : [];
       const newEntry = {
@@ -72,8 +66,7 @@ export default function App() {
         glucose: data.bloodGlucoseLevel
       };
       localStorage.setItem('preventai_history', JSON.stringify([newEntry, ...history]));
-      
-      return true; // Success
+      return true;
     } catch (err) {
       console.error(err);
       setError('Failed to analyze risk. Please check your connection and try again.');
@@ -98,61 +91,41 @@ export default function App() {
     <Router>
       <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
         <Navbar isLoggedIn={isLoggedIn} user={user} />
-        
         <main>
           <AnimatePresence mode="wait">
             <Routes>
               <Route path="/" element={<LandingPage />} />
               <Route path="/login" element={<Login setIsLoggedIn={setIsLoggedIn} setUser={setUser} />} />
               <Route path="/signup" element={<Signup setIsLoggedIn={setIsLoggedIn} setUser={setUser} />} />
-              
               <Route path="/predict" element={
                 isLoggedIn ? (
                   <PageWrapper>
-                    <PredictFlow 
-                      onPredict={handlePredict} 
-                      isLoading={isPredicting} 
-                      riskResult={riskResult} 
-                    />
+                    <PredictFlow onPredict={handlePredict} isLoading={isPredicting} riskResult={riskResult} patientData={lastPatientData} />
                   </PageWrapper>
                 ) : <Navigate to="/login" replace />
               } />
-              
               <Route path="/history" element={
-                isLoggedIn ? (
-                  <PageWrapper>
-                    <PatientHistory />
-                  </PageWrapper>
-                ) : <Navigate to="/login" replace />
+                isLoggedIn ? <PageWrapper><PatientHistory /></PageWrapper> : <Navigate to="/login" replace />
               } />
-              
               <Route path="/reports" element={
-                isLoggedIn ? (
-                  <PageWrapper>
-                    <Reports />
-                  </PageWrapper>
-                ) : <Navigate to="/login" replace />
+                isLoggedIn ? <PageWrapper><Reports /></PageWrapper> : <Navigate to="/login" replace />
               } />
-              
               <Route path="/settings" element={
-                isLoggedIn ? (
-                  <PageWrapper>
-                    <Settings setIsLoggedIn={setIsLoggedIn} user={user} setUser={setUser} />
-                  </PageWrapper>
-                ) : <Navigate to="/login" replace />
+                isLoggedIn ? <PageWrapper><Settings setIsLoggedIn={setIsLoggedIn} user={user} setUser={setUser} /></PageWrapper> : <Navigate to="/login" replace />
               } />
-
-              {/* Fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </AnimatePresence>
         </main>
 
+        {/* Global Chatbot */}
+        <Chatbot />
+
         {error && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="fixed bottom-8 right-8 bg-red-600 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 z-50"
+            className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-red-600 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 z-50"
           >
             <AlertCircle className="w-5 h-5" />
             <p className="font-medium">{error}</p>
@@ -164,15 +137,13 @@ export default function App() {
   );
 }
 
-// Sub-component to handle the prediction flow state
-function PredictFlow({ 
-  onPredict, 
-  isLoading, 
-  riskResult 
-}: { 
-  onPredict: (data: PatientData) => Promise<boolean>, 
-  isLoading: boolean, 
-  riskResult: RiskResult | null 
+function PredictFlow({
+  onPredict, isLoading, riskResult, patientData
+}: {
+  onPredict: (data: PatientData) => Promise<boolean>,
+  isLoading: boolean,
+  riskResult: RiskResult | null,
+  patientData: PatientData | null,
 }) {
   const [showResult, setShowResult] = useState(false);
 
@@ -184,13 +155,10 @@ function PredictFlow({
   if (showResult && riskResult) {
     return (
       <div className="space-y-6">
-        <button 
-          onClick={() => setShowResult(false)}
-          className="text-emerald-600 font-bold text-sm hover:underline flex items-center gap-2"
-        >
+        <button onClick={() => setShowResult(false)} className="text-emerald-600 font-bold text-sm hover:underline flex items-center gap-2">
           ← Back to Assessment
         </button>
-        <RiskDashboard result={riskResult} />
+        <RiskDashboard result={riskResult} patientInfo={patientData} />
       </div>
     );
   }

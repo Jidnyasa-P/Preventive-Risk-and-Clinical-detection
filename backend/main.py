@@ -164,6 +164,47 @@ async def predict_risk(patient: PatientData) -> RiskResult:
     )
 
 
+@app.post("/chat", tags=["Chatbot"])
+async def chat(payload: dict) -> dict:
+    """
+    Simple rule-based chatbot endpoint for PreventAI assistant.
+    Accepts { "message": str } and returns { "reply": str }.
+    """
+    message = payload.get("message", "").strip().lower()
+    
+    if not message:
+        return {"reply": "Please provide a message."}
+    
+    # Navigation
+    nav_map = {
+        ("predict", "assess", "risk", "analysis"): "/predict",
+        ("history", "past", "records"): "/history",
+        ("report", "reports", "statistics"): "/reports",
+        ("setting", "settings", "profile"): "/settings",
+    }
+    for keywords, path in nav_map.items():
+        if any(k in message for k in keywords):
+            return {"reply": f"I'll navigate you to {path}. Please use the navigation bar or follow the link.", "navigate": path}
+    
+    # Medical FAQ
+    if "hba1c" in message:
+        return {"reply": "HbA1c (Hemoglobin A1c) reflects your average blood sugar over 2–3 months. <5.7% is normal, 5.7–6.4% indicates prediabetes, and ≥6.5% indicates diabetes."}
+    
+    if "bmi" in message:
+        return {"reply": "BMI (Body Mass Index) = weight(kg) / height(m)². A BMI ≥30 is obese and significantly raises diabetes risk."}
+    
+    if "glucose" in message or "blood sugar" in message:
+        return {"reply": "Fasting blood glucose: <100 mg/dL is normal, 100–125 is prediabetes, ≥126 indicates diabetes."}
+    
+    if "risk score" in message or "percentage" in message:
+        return {"reply": "Risk Score: 0–30% = Low (annual screening), 30–60% = Moderate (lifestyle changes), 60–100% = High (immediate clinical intervention)."}
+    
+    if any(w in message for w in ["hello", "hi", "hey"]):
+        return {"reply": "Hello! I'm the PreventAI Assistant. I can help with navigation, medical terms, and risk interpretation. What would you like to know?"}
+    
+    return {"reply": "I can help you navigate the platform, explain medical terms (HbA1c, BMI, glucose), or interpret risk scores. Try asking 'What is HbA1c?' or 'Go to reports'."}
+
+
 @app.post("/predict/quick", tags=["Prediction"])
 async def predict_quick(patient: PatientData) -> dict:
     """
