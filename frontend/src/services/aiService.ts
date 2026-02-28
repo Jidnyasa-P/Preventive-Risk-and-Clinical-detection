@@ -14,8 +14,10 @@
 
 import { PatientData, RiskResult } from '../types';
 
+// In production: /ml proxied by Node server to internal Python FastAPI
+// In dev:        point to local Python directly via VITE_API_URL
 const API_BASE =
-  (import.meta as any).env?.VITE_API_URL ?? 'http://localhost:8000';
+  (import.meta as any).env?.VITE_API_URL ?? '/ml';
 
 export async function predictDiabetesRisk(data: PatientData): Promise<RiskResult> {
   const response = await fetch(`${API_BASE}/predict`, {
